@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Internet Radio - Tinglovchi sahifasi</title>
+
+  <style>
+    /* Umumiy dizayn */
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      max-width: 900px;
+      margin: 24px auto;
+      padding: 8px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .playlist {
+      margin-top: 16px;
+    }
+    .track {
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+    }
+    .now {
+      background: #f0f8ff;
+    }
+    .controls {
+      margin-top: 12px;
+    }
+    a.admin {
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Sarlavha va Admin sahifasiga havola -->
+  <header>
+    <h1>Internet Radio (Demo)</h1>
+    <div><a class="admin" href="/public/admin.html">Admin</a></div>
+  </header>
+
+  <!-- Hozir o‘ynalayotgan trek nomi -->
+  <section id="now">
+    <strong>Hozir efirda:</strong> <span id="nowTitle">—</span>
+  </section>
+
+  <!-- Audio pleer (faylni tinglash uchun) -->
+  <div class="controls">
+    <audio id="player" controls preload="none" style="width:100%"></audio>
+  </div>
+
+  <!-- Treklar ro‘yxati (playlist) -->
+  <h2>Playlist (qo‘shiqlar ro‘yxati)</h2>
+  <div class="playlist" id="playlist"></div>
+
+  <!-- socket.io faylini ulaymiz -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script>
+    // Socket.io orqali server bilan real vaqt aloqa
+    const socket = io();
+
+    // HTML elementlarini olish
+    const playlistEl = document.getElementById('playlist');
+    const player = document.getElementById('player');
+    const nowTitle = document.getElementById('nowTitle');
+
+    /* Playlistni ekranda ko‘rsatish funksiyasi */
+    function renderPlaylist(list) {
+      playlistEl.innerHTML = ''; // eski ro‘yxatni tozalash
+
+      list.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'track';
+
+        // Har bir trek uchun HTML tuzilma yaratamiz
+        div.innerHTML = `
+          <div>
+            <strong>${escapeHtml(item.title)}</strong><br>
+            <small>${escapeHtml(item.artist)}</small>
+          </div>
+          <div>
+            <button data-id="${item.id}">Play</button>
+            <a href="/uploads/${encodeURIComponent(item.filename)}" download>Yuklab olish</a>
+          </div>
+        `;
+
+        playlistEl.appendChild(div);
+
+        // “Play” tugmasi bosilganda trekni ijro etish
+        div.querySelector('button').addEventListener('click', () => {
+          playTrack(item);
+        });
+      });
+    }
+
+    /* Trekni ijro etish funksiyasi */
+    function playTrack(item) {
+      const url = `/uploads/${encodeURIComponent(item.filename)}`;
+      player.src = url;           // audio manzilini o‘rnatish
+      player.play();              // pleerni ishga tushirish
+      nowTitle.textContent = item.title + ' — ' + item.artist; // nomini chiqarish
+    }
+
+    /* Serverdan real vaqt yangilanishlarini qabul qilish */
+    // Playlist o‘zgarganda
+    socket.on('playlist:update', list => {
+      renderPlaylist(list);
+    });
+
+    // Hozirda o‘ynalayotgan trek o‘zgarganda
+    socket.on('nowplaying', item => {
+      if (item) {
+        nowTitle.textContent = item.title + ' — ' + item.artist;
+        // ixtiyoriy tarzda avtomatik yuklash uchun:
+        // player.src = `/uploads/${encodeURIComponent(item.filename)}`;
+      } else {
+        nowTitle.textContent = '—';
+      }
+    });
+
+    /* Dastlabki holatda playlistni serverdan olish */
+    fetch('/api/playlist')
+      .then(r => r.json())
+      .then(list => renderPlaylist(list));
+
+    /* Xavfsiz HTML chiqarish (xakerlikdan himoya) */
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>\"]/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])
+      );
+    }
+  </script>
+</body>
+</html>

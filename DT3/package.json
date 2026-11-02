@@ -1,0 +1,16 @@
+{
+    "name": "internet-radio-js",
+    "version": "1.0.0",
+    "description": "Simple internet-radio prototype: backend API + static frontend + upload/admin + live now-playing via socket.io",
+    "main": "server.js",
+    "scripts": {
+      "start": "node server.js"
+    },
+    "dependencies": {
+      "cors": "^2.8.5",
+      "express": "^4.18.2",
+      "multer": "^1.4.5-lts.1",
+      "socket.io": "^4.7.2",
+      "shortid": "^2.2.16"
+    }
+  }

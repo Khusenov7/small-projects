@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Internet Radio - Admin</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;max-width:900px;margin:24px auto;padding:8px}
+    .row{display:flex;gap:12px}
+    .track{padding:8px;border-bottom:1px solid #eee;display:flex;justify-content:space-between}
+  </style>
+</head>
+<body>
+  <h1>Admin Panel</h1>
+  <section>
+    <h3>Upload audio</h3>
+    <form id="uploadForm">
+      <div>
+        <input type="file" name="audio" accept="audio/*" required />
+      </div>
+      <div>
+        <input name="title" placeholder="Title (optional)" />
+      </div>
+      <div>
+        <input name="artist" placeholder="Artist (optional)" />
+      </div>
+      <div>
+        <button type="submit">Upload</button>
+      </div>
+    </form>
+  </section>
+
+  <section>
+    <h3>Playlist (set current)</h3>
+    <div id="playlist"></div>
+  </section>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const form = document.getElementById('uploadForm');
+    const playlistEl = document.getElementById('playlist');
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      if (res.ok) {
+        alert('Uploaded');
+        form.reset();
+      } else {
+        alert('Upload failed');
+      }
+    });
+
+    socket.on('playlist:update', list => {
+      render(list);
+    });
+
+    socket.on('nowplaying', item => {
+      // oqimni ajratib ko'rsatish
+      const items = document.querySelectorAll('.track');
+      items.forEach(el => el.classList.remove('now'));
+      if (item) {
+        const el = document.querySelector(`[data-id="${item.id}"]`);
+        if (el) el.classList.add('now');
+      }
+    });
+
+    function render(list) {
+      playlistEl.innerHTML = '';
+      list.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'track';
+        div.dataset.id = item.id;
+        div.innerHTML = `
+          <div><strong>${escapeHtml(item.title)}</strong><br><small>${escapeHtml(item.artist)}</small></div>
+          <div>
+            <button class="set">Set current</button>
+            <a href="/uploads/${encodeURIComponent(item.filename)}" download>Download</a>
+          </div>
+        `;
+        playlistEl.appendChild(div);
+        div.querySelector('.set').addEventListener('click', async () => {
+          const res = await fetch('/api/current', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id: item.id }) });
+          if (!res.ok) alert('Failed to set current');
+        });
+      });
+    }
+
+    fetch('/api/playlist').then(r => r.json()).then(list => render(list));
+
+    function escapeHtml(s){ return String(s).replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  </script>
+</body>
+</html>
+
+

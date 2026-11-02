@@ -1,0 +1,103 @@
+body {
+    font-family: sans-serif;
+    background: linear-gradient(to right, #f9f9f9, #e0f7fa);
+    padding: 20px;
+    color: #333;
+  }
+  
+  .container {
+    max-width: 800px;
+    margin: auto;
+  }
+  
+  h1 {
+    text-align: center;
+    color: #00796b;
+  }
+  
+  form {
+    background: #ffffff;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 0 10px #ccc;
+    display: grid;
+    gap: 10px;
+  }
+  
+  input, textarea, button {
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+  }
+  
+  button {
+    background-color: #00796b;
+    color: white;
+    cursor: pointer;
+  }
+  
+  .file-list {
+    display: grid;
+    gap: 15px;
+  }
+  
+  .file-card {
+    background: #ffffff;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 0 5px #bbb;
+  }
+  
+  .file-card h3 {
+    margin: 0;
+    color: #00796b;
+  }
+  
+  .file-card p {
+    margin: 5px 0;
+  }
+  
+  .file-card button {
+    background-color: #009688;
+    margin-top: 5px;
+  }
+  
+  #searchInput {
+    width: 100%;
+    margin-bottom: 15px;
+  }
+  
+  /* Modal oynasi */
+  .modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(0,0,0,0.6);
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .modal-content {
+    background: white;
+    padding: 10px;
+    border-radius: 10px;
+    width: 80%;
+    height: 80%;
+    position: relative;
+  }
+  
+  .modal-content iframe {
+    width: 100%;
+    height: 100%;
+  }
+  
+  .close {
+    position: absolute;
+    top: 10px; right: 20px;
+    font-size: 24px;
+    cursor: pointer;
+  }
+  

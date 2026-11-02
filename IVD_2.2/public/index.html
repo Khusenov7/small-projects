@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="uz">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Axborot Arxivi</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <h1>📁 Axborot Arxiv Moduli</h1>
+
+  <!-- Yuklash formasi -->
+  <form id="uploadForm">
+    <input type="text" id="title" placeholder="Sarlavha" required />
+    <input type="text" id="description" placeholder="Tavsif" required />
+    <input type="file" id="fileInput" required />
+    <button type="submit">Yuklash</button>
+  </form>
+
+  <!-- Qidiruv -->
+  <input type="text" id="searchInput" placeholder="🔍 Qidiruv..." />
+
+  <!-- Fayllar ro‘yxati -->
+  <div id="fileList"></div>
+
+  <!-- Modal oynasi -->
+  <div id="modal" class="modal">
+    <span id="modalClose" class="modal-close">✖</span>
+    <iframe id="modalViewer" class="modal-viewer" frameborder="0"></iframe>
+  </div>
+
+
+  <!-- Modal oynasi -->
+  <div id="editModal" style="display: none; position: fixed; top: 20%; left: 50%; transform: translateX(-50%);
+background: white; padding: 20px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.2); z-index: 999;">
+    <h3>Tahrirlash</h3>
+    <label>Sarlavha:</label>
+    <input type="text" id="modalTitle" style="width: 100%;"><br><br>
+    <label>Tavsif:</label>
+    <textarea id="modalDesc" rows="4" style="width: 100%;"></textarea><br><br>
+    <button id="saveChangesBtn">Saqlash</button>
+    <button id="closeModalBtn">Yopish</button>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,10 @@
+Axborot Arxiv Moduli
+
+Ushbu dastur Individual Loyiha fanidan amaliy topshiriq sifatida bajarilgan.
+
+Dasturda har qanday formatdagi fayllarni sarlavha va tavsif bergan holda yuklash mumkin.
+
+Yuklangan fayllarni qidiruv bo'limi orqali qidirish, fayllarni ko'rish, yuklab olish, o'chirish
+hamda berilgan sarlavha va tavsifni tahrirlash mumkin.
+
+Loyihani ishga tushirish: D:\IVD_2.2> node server.js

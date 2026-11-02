@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Real vaqt rejimida yuzni tasdiqlash (Face-api.js)</title>
+  
+  <!-- Favicon (ixtiyoriy) -->
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+  <!-- Sahifa dizayni -->
+  <style>
+    body {
+      font-family: Inter, Arial, Helvetica, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 18px;
+      gap: 12px;
+      background: #f5f7fb;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(20,30,60,0.08);
+      padding: 14px;
+      max-width: 980px;
+      width: 100%;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    #video {
+      border-radius: 8px;
+      background: #000;
+      width: 640px;
+      height: 480px;
+    }
+    #overlay {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .status {
+      margin-top: 8px;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .good {
+      background: #e6ffef;
+      color: #046a3a;
+    }
+    .bad {
+      background: #fff0f0;
+      color: #8a1f2d;
+    }
+    .small {
+      font-size: 13px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <header>
+      <h2>Real vaqt rejimida yuzni tasdiqlash</h2>
+      <div class="small">
+        Avval ma’lumot rasm(lar)ini yuklang, so‘ngra veb-kamerani yoqing — tizim yuklangan tasvir bilan jonli yuzni solishtirib, mosligini tekshiradi.
+      </div>
+    </header>
+
+    <div style="display:flex;gap:14px;margin-top:12px;flex-wrap:wrap">
+      <!-- Jonli video va overlay -->
+      <div style="position:relative">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="overlay" width="640" height="480" style="position:absolute;left:0;top:0"></canvas>
+      </div>
+
+      <!-- O‘ng tomondagi boshqaruvlar -->
+      <div style="min-width:260px;flex:1">
+        <!-- Rasm yuklash -->
+        <div>
+          <label>Ma’lumot rasmi (bir yoki bir nechta):</label><br>
+          <input id="refUpload" type="file" accept="image/*" multiple />
+        </div>
+
+        <!-- Tugmalar va parametrlar -->
+        <div class="controls">
+          <button id="startCam">🎥 Kamerani ishga tushirish</button>
+          <button id="stopCam" disabled>🛑 To‘xtatish</button>
+          <label>Moslik chegarasi:
+            <input id="threshold" type="number" min="0.1" max="1" step="0.01" value="0.6" style="width:72px"/>
+          </label>
+        </div>
+
+        <!-- Holat xabari -->
+        <div class="status" id="status">Modellar hali yuklanmagan.</div>
+
+        <!-- Ro‘yxatdan o‘tgan yuzlar ro‘yxati -->
+        <div style="margin-top:10px">
+          <h4>Ro‘yxatdan o‘tgan yuzlar</h4>
+          <div id="enrolledList" class="small">(hali mos yozuvlar mavjud emas)</div>
+        </div>
+
+        <!-- Oxirgi natija -->
+        <div style="margin-top:10px">
+          <h4>Oxirgi natija</h4>
+          <div id="result" class="small">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Face-api.js kutubxonasini ulash -->
+  <script src="https://unpkg.com/face-api.js/dist/face-api.min.js"></script>
+
+  <script>
+    // --- DOM elementlarini olish ---
+    const video = document.getElementById('video');
+    const overlay = document.getElementById('overlay');
+    const ctx = overlay.getContext('2d');
+    const status = document.getElementById('status');
+    const refUpload = document.getElementById('refUpload');
+    const enrolledList = document.getElementById('enrolledList');
+    const resultDiv = document.getElementById('result');
+    const startCamBtn = document.getElementById('startCam');
+    const stopCamBtn = document.getElementById('stopCam');
+    const thresholdInput = document.getElementById('threshold');
+
+    // --- Global o‘zgaruvchilar ---
+    let stream = null;                   // Kamera oqimi
+    let faceMatcher = null;              // Yuzlarni solishtiruvchi obyekt
+    let labeledDescriptors = [];         // Yuz deskriptorlari (ro‘yxatdan o‘tgan yuzlar)
+    let detectInterval = null;           // Interval ID (real vaqt aniqlash uchun)
+    const MODEL_URL = '/models';         // Modellar saqlanadigan papka manzili
+
+    // --- Modellarni yuklash funksiyasi ---
+    async function loadModels(){
+      status.textContent = 'Modellar yuklanmoqda...';
+      try{
+        // Face-api.js uchun zarur bo‘lgan 3 ta modelni yuklaymiz
+        await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL); // Yuzni aniqlash
+        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL); // Belgilar (ko‘z, burun va h.k.)
+        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL); // Yuz tanish modeli
+        status.textContent = 'Modellar yuklandi ✅. Endi rasm(lar)ni yuklang.';
+      }catch(e){
+        status.textContent = 'Xatolik: modellerni yuklab bo‘lmadi. /models papkasi to‘g‘riligini tekshiring.';
+        console.error(e);
+      }
+    }
+
+    // --- Fayldan HTMLImageElement yaratish yordamchisi ---
+    function fileToImage(file){
+      return new Promise((resolve,reject)=>{
+        const img = new Image();
+        img.onload = ()=> resolve(img);
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    // --- Yuklangan rasm(lar)dan yuzni ro‘yxatdan o‘tkazish ---
+    async function enrollFromFiles(files){
+      if(!files || files.length===0) return;
+      status.textContent = 'Rasm(lar)ga ishlov berilmoqda...';
+
+      const label = 'User';   // Bitta foydalanuvchi sifatida belgilanadi
+      const descriptors = []; // Rasm(deskriptor)lar to‘plami
+
+      // Har bir yuklangan fayl uchun yuzni aniqlash
+      for(const f of files){
+        try{
+          const img = await fileToImage(f);
+          const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+          if(!detection){
+            console.warn('Yuz topilmadi:', f.name);
+            continue;
+          }
+          descriptors.push(detection.descriptor);
+        }catch(err){
+          console.error('Xatolik yuz berdi:', f.name, err);
+        }
+      }
+
+      // Agar hech qanday yuz topilmasa
+      if(descriptors.length===0){
+        status.textContent = 'Hech qanday yuz topilmadi.';
+        return;
+      }
+
+      // Agar avval ro‘yxatdan o‘tgan bo‘lsa, yangilaymiz
+      const existingIndex = labeledDescriptors.findIndex(ld => ld.label === label);
+      const ldObject = new faceapi.LabeledFaceDescriptors(label, descriptors);
+      if(existingIndex>=0) labeledDescriptors[existingIndex] = ldObject;
+      else labeledDescriptors.push(ldObject);
+
+      // Yangi FaceMatcher yaratamiz
+      faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, parseFloat(thresholdInput.value));
+
+      // Ro‘yxatni ekranga chiqarish
+      enrolledList.innerHTML = labeledDescriptors.map(ld => `${ld.label} — ${ld.descriptors.length} ta rasm`).join('<br>');
+      status.textContent = 'Rasm(lar) muvaffaqiyatli ro‘yxatdan o‘tkazildi ✅.';
+    }
+
+    // --- Rasm tanlanganda avtomatik ishlov berish ---
+    refUpload.addEventListener('change', async (e)=>{
+      await enrollFromFiles(e.target.files);
+    });
+
+    // --- Kamerani ishga tushirish ---
+    startCamBtn.addEventListener('click', async ()=>{
+      // Agar modellar hali yuklanmagan bo‘lsa
+      if(!faceapi.nets.faceRecognitionNet.params) {
+        await loadModels();
+      }
+
+      try{
+        // Kamera oqimini olish
+        stream = await navigator.mediaDevices.getUserMedia({video:{width:640,height:480}, audio:false});
+        video.srcObject = stream;
+        startCamBtn.disabled = true;
+        stopCamBtn.disabled = false;
+
+        // Video o‘lchamlarini o‘rnatish
+        video.addEventListener('loadedmetadata', ()=>{
+          overlay.width = video.videoWidth;
+          overlay.height = video.videoHeight;
+        });
+
+        // Har 250ms da yuzni aniqlash sikli
+        detectInterval = setInterval(async ()=>{
+          if(video.readyState < 2) return;
+
+          // Videodan yuzlarni aniqlash
+          const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+          ctx.clearRect(0,0,overlay.width,overlay.height);
+
+          // Agar hech narsa topilmasa
+          if(detections.length===0){
+            resultDiv.textContent = 'Kamerada yuz aniqlanmadi.';
+            resultDiv.className = 'small';
+            return;
+          }
+
+          // Yuz atrofida to‘rtburchak chizish
+          const resized = faceapi.resizeResults(detections, { width: overlay.width, height: overlay.height });
+          resized.forEach(det => {
+            const box = det.detection.box;
+            ctx.strokeStyle = '#00b7ff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+          });
+
+          // Agar ma’lumotnoma mavjud bo‘lmasa
+          if(!faceMatcher){
+            resultDiv.textContent = 'Ro‘yxatdan o‘tgan yuz yo‘q.';
+            return;
+          }
+
+          // 1-ta aniqlangan yuzni solishtirish
+          const descriptor = detections[0].descriptor;
+          const best = faceMatcher.findBestMatch(descriptor);
+          const threshold = parseFloat(thresholdInput.value);
+          const matchLabel = best.label === 'unknown' ? null : best.label;
+          const distance = best.distance;
+
+          // Masofa thresholddan kichik bo‘lsa — mos
+          if(matchLabel && distance <= threshold){
+            resultDiv.textContent = `✅ Tasdiqlandi — ${matchLabel} (masofa: ${distance.toFixed(4)} ≤ ${threshold})`;
+            resultDiv.className = 'good';
+          } else {
+            resultDiv.textContent = `❌ Mos emas — ${matchLabel ? `yaqin: ${matchLabel} (masofa ${distance.toFixed(4)})` : 'mos topilmadi'}`;
+            resultDiv.className = 'bad';
+          }
+        }, 250);
+
+      }catch(err){
+        console.error(err);
+        status.textContent = 'Kamerani ishga tushirib bo‘lmadi: ' + (err.message || err.name);
+      }
+    });
+
+    // --- Kamerani to‘xtatish ---
+    stopCamBtn.addEventListener('click', ()=>{
+      if(stream){
+        for(const t of stream.getTracks()) t.stop(); // barcha oqimlarni to‘xtatish
+        stream = null;
+      }
+      if(detectInterval) clearInterval(detectInterval);
+      startCamBtn.disabled = false;
+      stopCamBtn.disabled = true;
+      ctx.clearRect(0,0,overlay.width,overlay.height);
+      status.textContent = 'Kamera to‘xtatildi.';
+    });
+
+    // --- Threshold qiymati o‘zgarsa, FaceMatcher yangilanishi ---
+    thresholdInput.addEventListener('change', ()=>{
+      const t = parseFloat(thresholdInput.value);
+      if(labeledDescriptors.length>0){
+        faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, t);
+      }
+    });
+
+    // --- Dastur ishga tushganda modellarni avtomatik yuklash ---
+    loadModels();
+
+    console.log('✅ Yuzni tekshirish sahifasi ishga tayyor. Modellar /models papkasida joylashgan bo‘lishi kerak.');
+  </script>
+</body>
+</html>

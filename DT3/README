@@ -1,0 +1,6 @@
+Internet Radio (Demo)
+
+Ushbu kichik loyiha "Dasturiy ta'minot tizimlari" fanidan amaliy ish sifatida bajarilgan.
+Bunda audio fayllarni qo'shish, tinglash va yuklab olish mumkin.
+
+Loyihani ishga tushirish: D:\DT3> node server.js
